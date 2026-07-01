@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.local
 .vite/
+
+# Baked scene bundles are generated at build time (scripts/bake_scenes.py).
+public/scenes/

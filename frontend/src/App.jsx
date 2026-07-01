@@ -1,27 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BlockMath } from 'react-katex';
 import SpringViewer from './viewer/SpringViewer.jsx';
-import { useSimSocket } from './lib/useSimSocket.js';
+import { useSceneData } from './lib/useSceneData.js';
 import { viridisGradient } from './lib/colormap.js';
 import { SCENES, defaultParams } from './components/scenes.js';
 import { LoopIcon, PauseIcon, PlayIcon, RestartIcon } from './components/Icons.jsx';
 
+// Static build (GitHub Pages) fetches pre-baked scenes; the live build talks to
+// the FastAPI backend over a WebSocket.
+const STATIC = import.meta.env.VITE_STATIC === 'true';
+const BASE_URL = import.meta.env.BASE_URL;
 const WS_URL =
   import.meta.env.VITE_WS_URL ||
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 
 const STATUS = {
   connecting: ['#eab308', 'connecting to backend…'],
-  idle: ['#22c55e', 'connected'],
-  computing: ['#38bdf8', 'JAX compiling + simulating…'],
+  idle: ['#22c55e', STATIC ? 'precomputed demo' : 'connected'],
+  computing: ['#38bdf8', STATIC ? 'loading scene…' : 'JAX compiling + simulating…'],
   streaming: ['#38bdf8', 'streaming frames'],
-  done: ['#22c55e', 'ready'],
+  done: ['#22c55e', STATIC ? 'precomputed demo' : 'ready'],
   error: ['#ef4444', 'error'],
   disconnected: ['#ef4444', 'backend offline — run the server'],
 };
 
 export default function App() {
-  const { status, meta, error, buffered, framesRef, configure } = useSimSocket(WS_URL);
+  const { status, meta, error, buffered, framesRef, configure } = useSceneData({
+    staticMode: STATIC,
+    wsUrl: WS_URL,
+    baseUrl: BASE_URL,
+  });
 
   const [scene, setScene] = useState('chain');
   const [params, setParams] = useState(() => defaultParams('chain'));
@@ -109,7 +117,9 @@ export default function App() {
             jax-spring-sim <span className="text-white/40">· differentiable physics viewer</span>
           </h1>
           <p className="mt-0.5 text-xs text-white/40">
-            JAX computes the trajectory · streamed over WebSocket · rendered with three.js (WebGPU/TSL)
+            {STATIC
+              ? 'JAX pre-computes the trajectories · rendered with three.js (WebGPU/TSL)'
+              : 'JAX computes the trajectory · streamed over WebSocket · rendered with three.js (WebGPU/TSL)'}
           </p>
         </div>
         <div className="flex items-center gap-4 text-xs">
@@ -137,7 +147,7 @@ export default function App() {
               {error}
             </div>
           )}
-          {status === 'disconnected' && (
+          {!STATIC && status === 'disconnected' && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="max-w-sm rounded-lg border border-white/10 bg-black/50 p-5 text-center text-sm text-white/70">
                 <p className="mb-2 font-medium text-white/90">Backend offline</p>
@@ -187,38 +197,51 @@ export default function App() {
             </div>
           </section>
 
-          {/* Parameters */}
-          <section>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
-              Parameters
-            </h2>
-            <div className="flex flex-col gap-3">
-              {sceneDef.params.map((p) => (
-                <label key={p.key} className="block">
-                  <div className="mb-1 flex justify-between text-xs text-white/60">
-                    <span>{p.label}</span>
-                    <span className="font-mono text-white/80">{params[p.key]}</span>
-                  </div>
-                  <input
-                    type="range"
-                    className="w-full"
-                    min={p.min}
-                    max={p.max}
-                    step={p.step}
-                    value={params[p.key]}
-                    onChange={(e) => onParam(p.key, Number(e.target.value))}
-                  />
-                </label>
-              ))}
-            </div>
-            <button
-              onClick={() => run(scene, params)}
-              disabled={status === 'computing'}
-              className="mt-3 w-full rounded-md bg-[#5b9cff] px-3 py-2 text-xs font-medium text-black transition hover:bg-[#7fb0ff] disabled:opacity-40"
-            >
-              {status === 'computing' ? 'computing…' : 'Run simulation'}
-            </button>
-          </section>
+          {/* Parameters (live backend only — static build serves fixed scenes) */}
+          {STATIC ? (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+                Parameters
+              </h2>
+              <p className="rounded-md bg-white/[0.03] p-2.5 text-xs leading-relaxed text-white/45">
+                Precomputed demo — the trajectories were baked with JAX at build time. Run the
+                backend locally (<code className="text-[#9ecbff]">python -m jax_spring_sim.server</code>)
+                to recompute scenes live from the parameter sliders.
+              </p>
+            </section>
+          ) : (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+                Parameters
+              </h2>
+              <div className="flex flex-col gap-3">
+                {sceneDef.params.map((p) => (
+                  <label key={p.key} className="block">
+                    <div className="mb-1 flex justify-between text-xs text-white/60">
+                      <span>{p.label}</span>
+                      <span className="font-mono text-white/80">{params[p.key]}</span>
+                    </div>
+                    <input
+                      type="range"
+                      className="w-full"
+                      min={p.min}
+                      max={p.max}
+                      step={p.step}
+                      value={params[p.key]}
+                      onChange={(e) => onParam(p.key, Number(e.target.value))}
+                    />
+                  </label>
+                ))}
+              </div>
+              <button
+                onClick={() => run(scene, params)}
+                disabled={status === 'computing'}
+                className="mt-3 w-full rounded-md bg-[#5b9cff] px-3 py-2 text-xs font-medium text-black transition hover:bg-[#7fb0ff] disabled:opacity-40"
+              >
+                {status === 'computing' ? 'computing…' : 'Run simulation'}
+              </button>
+            </section>
+          )}
 
           {/* Playback */}
           <section>

@@ -4,7 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 // The viewer talks to the FastAPI backend over a WebSocket. In dev we proxy
 // /ws to the backend so the frontend can use a same-origin relative URL.
+// BASE_PATH is set for the GitHub Pages build (project subpath).
 export default defineConfig({
+  base: process.env.BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {

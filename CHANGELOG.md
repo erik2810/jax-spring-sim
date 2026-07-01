@@ -23,3 +23,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`jax_spring_sim.server`) streaming JAX trajectories with a binary frame
   protocol, and a Vite + React + three.js (WebGPU/TSL) frontend with catenary,
   cloth, and inverse-design scenes. Backend covered by `test_server.py`.
+- Static GitHub Pages build: `scripts/bake_scenes.py` pre-computes scenes to
+  binary bundles the frontend loads without a backend, deployed by the
+  `deploy-pages` workflow.

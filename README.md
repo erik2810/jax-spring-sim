@@ -240,6 +240,8 @@ parameters match the ground truth to $\sim\!10^{-3}$.
 
 ## Interactive viewer (WebGPU)
 
+**Live demo:** https://erik2810.github.io/jax-spring-sim/ (a static, pre-baked build)
+
 An optional browser viewer renders the simulations live: the JAX backend
 computes a trajectory and streams it frame-by-frame over a WebSocket (binary
 protocol — JSON only for control messages), and a three.js **WebGPU** frontend
@@ -264,6 +266,21 @@ Three scenes: a **catenary** (both ends pinned), a 3D **cloth drape**, and
 chain visibly morphing onto the target shape as Adam runs. See
 [`frontend/README.md`](frontend/README.md) for details.
 
+### Static deployment (GitHub Pages)
+
+For a backend-free demo, trajectories are pre-computed to binary bundles and the
+frontend loads those instead of the WebSocket:
+
+```bash
+uv run python scripts/bake_scenes.py frontend/public/scenes   # bake with JAX
+cd frontend && VITE_STATIC=true BASE_PATH=/jax-spring-sim/ npm run build
+```
+
+The [`deploy-pages`](.github/workflows/deploy-pages.yml) workflow does exactly
+this on every push to `main` and publishes `frontend/dist` to GitHub Pages. In
+static mode the parameter sliders are replaced by a note (recomputing needs the
+backend); scene switching and playback still work.
+
 ---
 
 ## Project layout
@@ -285,6 +302,7 @@ jax-spring-sim/
 │           └── app.py          FastAPI app + /ws endpoint
 ├── frontend/                   Vite + React + three.js (WebGPU/TSL) viewer
 │   └── src/{viewer,lib,components}
+├── scripts/bake_scenes.py      pre-bake scenes for the static Pages build
 ├── tests/
 │   ├── test_energy.py          energy/force correctness
 │   ├── test_dynamics.py        pinning, shapes, symplectic energy bound
@@ -295,7 +313,9 @@ jax-spring-sim/
 ├── examples/                   runnable figures + benchmark
 ├── CITATION.cff
 ├── CHANGELOG.md
-└── .github/workflows/ci.yml    ruff + mypy + pytest on 3.10–3.12
+└── .github/workflows/
+    ├── ci.yml                  ruff + mypy + pytest on 3.10–3.12
+    └── deploy-pages.yml        bake scenes + deploy static viewer to Pages
 ```
 
 ---
