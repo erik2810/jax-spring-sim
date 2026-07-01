@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "jax-spring-sim: A differentiable, JIT-compiled particle-spring simulator in JAX"
+abstract: >-
+  A compact Scientific Machine Learning demonstrator implementing a Hookean
+  particle-spring system in JAX. Forces are obtained by automatic
+  differentiation of a scalar potential energy, trajectories are rolled out with
+  jax.lax.scan under jax.jit, ensembles are vectorised with jax.vmap, and
+  inverse-design problems are solved by differentiating through the simulation
+  with jax.value_and_grad.
+type: software
+authors:
+  - given-names: Erik
+    family-names: ""
+version: 0.1.0
+date-released: "2026-06-27"
+license: MIT
+keywords:
+  - JAX
+  - differentiable physics
+  - scientific machine learning
+  - automatic differentiation
+  - inverse design
+  - spring-mass system
+repository-code: "https://github.com/erik2810/jax-spring-sim"
+references:
+  - type: article
+    title: "JAX: composable transformations of Python+NumPy programs"
+    authors:
+      - family-names: Bradbury
+        given-names: James
+      - family-names: Frostig
+        given-names: Roy
+      - family-names: Hawkins
+        given-names: Peter
+    year: 2018
+    url: "http://github.com/google/jax"

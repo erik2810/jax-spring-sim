@@ -1,0 +1,109 @@
+"""Constructors for common spring-network topologies.
+
+These return a ``(State, SpringSystem)`` pair ready to feed to
+:func:`~jax_spring_sim.dynamics.simulate`. Rest lengths default to the initial
+edge lengths, so each network starts at rest (modulo gravity).
+"""
+
+from __future__ import annotations
+
+import jax
+import jax.numpy as jnp
+
+from .system import SpringSystem, State
+
+
+def _rest_lengths(pos: jax.Array, edges: jax.Array) -> jax.Array:
+    delta = pos[edges[:, 0]] - pos[edges[:, 1]]
+    return jnp.linalg.norm(delta, axis=-1)
+
+
+def make_chain(
+    n: int,
+    *,
+    spacing: float = 1.0,
+    stiffness: float = 50.0,
+    mass: float = 1.0,
+    gravity: tuple[float, ...] = (0.0, -9.81),
+    damping: float = 0.999,
+    pin_first: bool = True,
+) -> tuple[State, SpringSystem]:
+    """A horizontal chain of ``n`` particles linked by ``n-1`` springs.
+
+    With ``pin_first`` the leftmost particle is clamped, giving a pendulum /
+    hanging-rope that swings down under gravity — a clean test bed for both
+    forward dynamics and inverse design.
+    """
+    dim = len(gravity)
+    pos = jnp.zeros((n, dim)).at[:, 0].set(jnp.arange(n) * spacing)
+    vel = jnp.zeros((n, dim))
+    edges = jnp.stack([jnp.arange(n - 1), jnp.arange(1, n)], axis=1)
+
+    fixed = jnp.zeros(n).at[0].set(1.0) if pin_first else jnp.zeros(n)
+    system = SpringSystem(
+        edges=edges,
+        rest_length=_rest_lengths(pos, edges),
+        stiffness=jnp.full(n - 1, stiffness),
+        mass=jnp.full(n, mass),
+        fixed=fixed,
+        gravity=jnp.asarray(gravity),
+        damping=jnp.asarray(damping),
+    )
+    return State(pos=pos, vel=vel), system
+
+
+def make_cloth(
+    rows: int,
+    cols: int,
+    *,
+    spacing: float = 1.0,
+    stiffness: float = 80.0,
+    mass: float = 1.0,
+    gravity: tuple[float, float, float] = (0.0, 0.0, -9.81),
+    damping: float = 0.995,
+    pin_top: bool = True,
+    shear: bool = True,
+) -> tuple[State, SpringSystem]:
+    """A ``rows x cols`` grid of particles with structural (and shear) springs.
+
+    The grid lies in the $xy$-plane and falls along $z$. With ``pin_top`` the
+    top row is clamped, producing a hanging curtain. ``shear`` adds the two
+    diagonal springs per cell that keep the sheet from collapsing.
+    """
+    xs, ys = jnp.meshgrid(jnp.arange(cols), jnp.arange(rows), indexing="xy")
+    flat = (ys * cols + xs).reshape(-1)  # noqa: F841 (documents index layout)
+    pos = jnp.stack(
+        [xs.reshape(-1) * spacing, ys.reshape(-1) * spacing, jnp.zeros(rows * cols)],
+        axis=1,
+    )
+    vel = jnp.zeros_like(pos)
+
+    def idx(r: int, c: int) -> int:
+        return r * cols + c
+
+    edge_list: list[tuple[int, int]] = []
+    for r in range(rows):
+        for c in range(cols):
+            if c + 1 < cols:
+                edge_list.append((idx(r, c), idx(r, c + 1)))
+            if r + 1 < rows:
+                edge_list.append((idx(r, c), idx(r + 1, c)))
+            if shear and r + 1 < rows and c + 1 < cols:
+                edge_list.append((idx(r, c), idx(r + 1, c + 1)))
+                edge_list.append((idx(r, c + 1), idx(r + 1, c)))
+    edges = jnp.asarray(edge_list)
+
+    fixed = jnp.zeros(rows * cols)
+    if pin_top:
+        fixed = fixed.at[jnp.arange(cols)].set(1.0)
+
+    system = SpringSystem(
+        edges=edges,
+        rest_length=_rest_lengths(pos, edges),
+        stiffness=jnp.full(edges.shape[0], stiffness),
+        mass=jnp.full(rows * cols, mass),
+        fixed=fixed,
+        gravity=jnp.asarray(gravity),
+        damping=jnp.asarray(damping),
+    )
+    return State(pos=pos, vel=vel), system
