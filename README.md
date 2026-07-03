@@ -143,6 +143,11 @@ runs the *same* hanging-chain rollout ($N=60$ particles, $2000$ steps) four
 ways. Numbers below are from a single Apple-Silicon **CPU**, JAX 0.10.2,
 float32 — your mileage varies, the *ratios* are the point.
 
+A wider sweep lives in [`profile_engine.py`](profile_engine.py): system sizes
+up to 50k nodes, jit vs. eager per step, and gradient cost vs. rollout horizon,
+written to [`BENCHMARKS.md`](BENCHMARKS.md) with the environment it was
+measured on.
+
 ```
 implementation                      time / rollout     speedup vs JAX-jit
 ------------------------------------------------------------------------
