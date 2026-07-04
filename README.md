@@ -1,5 +1,10 @@
 # jax-spring-sim
 
+[![ci](https://github.com/erik2810/jax-spring-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/erik2810/jax-spring-sim/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%E2%80%933.12-3776ab.svg)](pyproject.toml)
+[![JAX](https://img.shields.io/badge/JAX-0.4%2B-9c27b0.svg)](https://docs.jax.dev)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A differentiable, JIT-compiled **particle-spring physics simulator** built on
 JAX. It is a compact, self-contained demonstrator for the four program
 transformations that define modern Scientific Machine Learning (SciML):
@@ -98,6 +103,13 @@ uv sync --extra viz     # + matplotlib/numpy for the example figures
 uv sync --extra dev     # + pytest, ruff, mypy
 ```
 
+Or run it in a container without installing anything (CPU JAX; prints the
+benchmark sweep and exits):
+
+```bash
+docker build -t jax-spring-sim . && docker run --rm jax-spring-sim
+```
+
 A minimal forward simulation:
 
 ```python
@@ -107,6 +119,20 @@ from jax_spring_sim import make_chain, simulate, simulate_final
 state, system = make_chain(20)            # pinned chain under gravity
 final, trajectory = simulate(state, system, dt=0.01, n_steps=500)
 print(final.pos.shape)                      # (20, 2)
+```
+
+One forward-backward step through the whole rollout, gradients w.r.t. every
+rest length at once:
+
+```python
+import jax
+from jax_spring_sim import make_chain, trajectory_loss
+
+state, system = make_chain(20)
+target = state.pos                            # any observed shape, (20, 2)
+loss = lambda rest: trajectory_loss(rest, state, system, target, 0.01, 250)
+value, grads = jax.value_and_grad(loss)(system.rest_length)
+print(value, grads.shape)                     # scalar loss, (19,)
 ```
 
 Inverse design — recover hidden rest lengths from an observed shape:
@@ -138,12 +164,12 @@ print(finals.pos.shape)                                   # (256, 20, 2)
 ## Performance: why JAX over a standard iterative loop
 
 The headline question is the one in the task: what does JAX buy over a standard
-iterative physics loop? The benchmark ([`examples/benchmark.py`](examples/benchmark.py))
+iterative physics loop? The benchmark ([`benchmarks/benchmark.py`](benchmarks/benchmark.py))
 runs the *same* hanging-chain rollout ($N=60$ particles, $2000$ steps) four
 ways. Numbers below are from a single Apple-Silicon **CPU**, JAX 0.10.2,
 float32 — your mileage varies, the *ratios* are the point.
 
-A wider sweep lives in [`profile_engine.py`](profile_engine.py): system sizes
+A wider sweep lives in [`benchmarks/profile_engine.py`](benchmarks/profile_engine.py): system sizes
 up to 50k nodes, jit vs. eager per step, and gradient cost vs. rollout horizon,
 written to [`BENCHMARKS.md`](BENCHMARKS.md) with the environment it was
 measured on.
@@ -239,7 +265,6 @@ parameters match the ground truth to $\sim\!10^{-3}$.
 
 ![vmap ensemble band](assets/ensemble.png)
 
-**`benchmark.py`** — the performance table above.
 
 ---
 
@@ -315,7 +340,9 @@ jax-spring-sim/
 │   ├── test_batch.py           vmap vs serial-loop equivalence
 │   ├── test_inverse.py         inverse-design convergence
 │   └── test_server.py          binary protocol + WebSocket streaming
-├── examples/                   runnable figures + benchmark
+├── examples/                   runnable figures
+├── benchmarks/                 benchmark.py + profile_engine.py (writes BENCHMARKS.md)
+├── Dockerfile                  slim CPU image; runs the quick benchmark sweep
 ├── CITATION.cff
 ├── CHANGELOG.md
 └── .github/workflows/

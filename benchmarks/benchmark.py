@@ -12,7 +12,7 @@ Compares four implementations of the *same* hanging-chain rollout:
 
 Run::
 
-    uv run python examples/benchmark.py
+    uv run python benchmarks/benchmark.py
 """
 
 from __future__ import annotations

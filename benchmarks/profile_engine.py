@@ -19,8 +19,8 @@ BENCHMARKS.md comes from a measurement in the current run.
 
 Run::
 
-    uv run python profile_engine.py            # full sweep, writes BENCHMARKS.md
-    uv run python profile_engine.py --quick    # smaller sweep for a smoke test
+    uv run python benchmarks/profile_engine.py            # full sweep, writes BENCHMARKS.md
+    uv run python benchmarks/profile_engine.py --quick    # smaller sweep for a smoke test
 """
 
 from __future__ import annotations
@@ -242,7 +242,7 @@ def write_markdown(path: str, roll: list[dict], grad: list[dict], quick: bool) -
     lines = [
         "# Benchmarks",
         "",
-        f"Measured with [`profile_engine.py`](profile_engine.py) on {now}"
+        f"Measured with [`benchmarks/profile_engine.py`](benchmarks/profile_engine.py) on {now}"
         f"{' (quick mode)' if quick else ''}.",
         f"Environment: {env}. Peak process RSS {_peak_rss_megabytes():.0f} MB.",
         "",

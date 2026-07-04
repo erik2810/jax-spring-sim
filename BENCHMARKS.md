@@ -1,6 +1,6 @@
 # Benchmarks
 
-Measured with [`profile_engine.py`](profile_engine.py) on 2026-07-03 22:33.
+Measured with [`benchmarks/profile_engine.py`](benchmarks/profile_engine.py) on 2026-07-03 22:33.
 Environment: Darwin arm64, Python 3.13.9, JAX 0.10.2, devices: CPU. Peak process RSS 1142 MB.
 
 Timing is the median of repeated runs after a warm-up call; JAX results use `block_until_ready()` so device work is actually finished when the clock stops. Eager rows run the identical `step` function under `jax.disable_jit()` in a Python loop. Compile time is the first call to the jitted rollout, including XLA compilation.
