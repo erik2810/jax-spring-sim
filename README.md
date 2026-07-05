@@ -104,7 +104,13 @@ uv sync --extra dev     # + pytest, ruff, mypy
 ```
 
 Or run it in a container without installing anything (CPU JAX; prints the
-benchmark sweep and exits):
+benchmark sweep and exits). A prebuilt image is published to GHCR:
+
+```bash
+docker run --rm ghcr.io/erik2810/jax-spring-sim
+```
+
+Or build it locally:
 
 ```bash
 docker build -t jax-spring-sim . && docker run --rm jax-spring-sim
