@@ -5,7 +5,7 @@ description = "Differentiable, JIT-compiled particle-spring physics in JAX (a Sc
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-authors = [{ name = "Erik" }]
+authors = [{ name = "Erik Löffelholz", email = "eriklfholz@googlemail.com" }]
 keywords = [
     "jax",
     "differentiable-physics",
@@ -59,7 +59,10 @@ dev = [
 ]
 
 [project.urls]
+Homepage = "https://erik2810.github.io/jax-spring-sim/"
 Repository = "https://github.com/erik2810/jax-spring-sim"
+Issues = "https://github.com/erik2810/jax-spring-sim/issues"
+Benchmarks = "https://github.com/erik2810/jax-spring-sim/blob/main/BENCHMARKS.md"
 Mirror = "https://codeberg.org/erik/jax-spring-sim"
 
 [build-system]
