@@ -117,6 +117,8 @@ def make_cloth(
         gravity=jnp.asarray(gravity),
         damping=jnp.asarray(damping),
         collision_stiffness=jnp.asarray(collision_stiffness),
-        collision_radius=jnp.asarray(0.9 * spacing if collision_radius is None else collision_radius),
+        collision_radius=jnp.asarray(
+            0.9 * spacing if collision_radius is None else collision_radius
+        ),
     )
     return State(pos=pos, vel=vel), system
