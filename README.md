@@ -125,6 +125,38 @@ while the hashed grid stays close to linear and keeps going. On a laptop CPU it 
 about 6x faster at 8k particles and still runs at 32k where the all-pairs version
 cannot allocate its distance matrix.
 
+### Learned equivariant surrogate (`egnn.py`)
+
+Everything above integrates the known physics. `egnn.py` learns a neural surrogate
+that predicts one step directly, and the point is the symmetry. The true spring
+dynamics is equivariant: rotate and translate the mesh and every next position and
+velocity moves the same way. A plain network that ate raw coordinates would break
+that; this surrogate is E(n)-equivariant by construction (Satorras et al. 2021), so
+it obeys the same SE(3) symmetry as the physics it imitates, to machine precision.
+
+It is written in the same from-scratch style as the rest of the engine (parameter
+pytrees and `jax.numpy`, no neural-network framework), so it composes with `jit` /
+`grad` / `vmap` and trains with the package's own `adam`. Messages run over the
+spring edge list and depend on coordinates only through the invariant squared
+distance $\lVert x_i - x_j \rVert^2$; the surrogate predicts the next velocity as an
+equivariant combination of the relative vectors $x_i - x_j$, and the position
+follows the integrator's own rule $x_\text{next} = x + \Delta t\, v_\text{next}$.
+
+```python
+import jax
+from jax_spring_sim import egnn, make_cloth
+from jax_spring_sim.dynamics import step
+
+state, system = make_cloth(4, 4, gravity=(0.0, 0.0, 0.0))  # gravity-free => equivariant
+params = egnn.init_params(jax.random.PRNGKey(0), node_feat_dim=2, edge_attr_dim=2)
+pred = egnn.predict_step(params, state, system, dt=5e-3)    # a learned stand-in for step()
+```
+
+`tests/test_egnn.py` verifies the SE(3) equivariance to 1e-5, checks the gradient
+against finite differences, and trains the surrogate against the true integrator:
+the one-step loss drops about 15x and the trained model beats the do-nothing
+baseline on both position and velocity.
+
 ---
 
 ## Quick start
@@ -363,6 +395,7 @@ jax-spring-sim/
 │       ├── system.py           State / SpringSystem pytrees (NamedTuple)
 │       ├── energy.py           potential energy; forces via jax.grad
 │       ├── spatial.py          differentiable spatial hash grid; O(N) collision
+│       ├── egnn.py             learned SE(3)-equivariant one-step surrogate
 │       ├── dynamics.py         symplectic Euler; jit + lax.scan rollout
 │       ├── builders.py         make_chain / make_cloth constructors
 │       ├── batch.py            jax.vmap ensemble simulation
@@ -381,6 +414,7 @@ jax-spring-sim/
 │   ├── test_batch.py           vmap vs serial-loop equivalence
 │   ├── test_inverse.py         inverse-design convergence
 │   ├── test_spatial.py         hash grid vs naive parity + collision gradcheck
+│   ├── test_egnn.py            surrogate SE(3) equivariance + learns one step
 │   └── test_server.py          binary protocol + WebSocket streaming
 ├── examples/                   runnable figures
 ├── benchmarks/                 benchmark.py, profile_engine.py, collision_scaling.py

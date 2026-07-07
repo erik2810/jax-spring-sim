@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from .batch import perturb_initial, simulate_ensemble
 from .builders import make_chain, make_cloth
+from . import egnn
 from .dynamics import kinetic_energy, simulate, simulate_final, step
 from .energy import compute_force, gravity_energy, spring_energy, total_energy
 from .inverse import adam, fit_rest_lengths, trajectory_loss
@@ -30,6 +31,7 @@ __all__ = [
     "collision_energy",
     "collision_energy_naive",
     "compute_force",
+    "egnn",
     "fit_rest_lengths",
     "gravity_energy",
     "kinetic_energy",

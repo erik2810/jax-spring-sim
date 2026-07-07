@@ -17,6 +17,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `tests/test_spatial.py`: hashed-vs-naive energy and gradient parity,
   `check_grads` on the collision energy, and a collision-enabled rollout.
 - `benchmarks/collision_scaling.py`: naive O(N^2) vs hashed scaling comparison.
+- `egnn.py`: a learned, E(n)-equivariant one-step surrogate for the spring
+  dynamics (Satorras et al. 2021), written in the package's from-scratch pytree
+  style. Messages depend on coordinates only through the invariant squared
+  distance and the predicted velocity is an equivariant combination of the
+  relative vectors, so `predict_step` is SE(3)-equivariant by construction and
+  trains with the package's own `adam`.
+- `tests/test_egnn.py`: SE(3) equivariance to 1e-5, a `check_grads` gradient
+  check, and a training run that fits the true one-step map and beats the
+  do-nothing baseline.
 
 ## [0.1.0] - 2026-06-27
 
