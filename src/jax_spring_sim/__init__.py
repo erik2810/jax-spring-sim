@@ -17,6 +17,7 @@ from .builders import make_chain, make_cloth
 from .dynamics import kinetic_energy, simulate, simulate_final, step
 from .energy import compute_force, gravity_energy, spring_energy, total_energy
 from .inverse import adam, fit_rest_lengths, trajectory_loss
+from .spatial import build_cell_list, collision_energy, collision_energy_naive
 from .system import SpringSystem, State
 
 __version__ = "0.1.0"
@@ -25,6 +26,9 @@ __all__ = [
     "SpringSystem",
     "State",
     "adam",
+    "build_cell_list",
+    "collision_energy",
+    "collision_energy_naive",
     "compute_force",
     "fit_rest_lengths",
     "gravity_energy",

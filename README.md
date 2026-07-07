@@ -91,6 +91,40 @@ $\mathbf{a}_t = \mathbf{F}(\mathbf{x}_t)/m$. Symplectic Euler keeps the total
 energy bounded over long undamped rollouts (verified in the tests), unlike
 explicit Euler, which injects energy and blows up.
 
+### Collision (optional, O(N) via a spatial hash grid)
+
+Springs act along an edge list, so the force loop is already O(E), which is O(N)
+for a mesh. Non-bonded contact is different: any two particles that come within a
+cutoff $r_c$ repel, and testing every pair is O(N^2). The optional collision term
+adds a short-range penalty over close pairs,
+
+$$
+U_\text{col} = \tfrac12 k_\text{col} \sum_{i<j,\; r_{ij} < r_c} (r_c - r_{ij})^2 ,
+$$
+
+and evaluates it in linear time with a spatial hash grid (`spatial.py`): each
+particle is hashed into a cell of side $r_c$ and only compared against the $3^D$
+cells around it. The hashing and sorting that pick which pairs interact are
+integer operations and carry no gradient, which is what you want. The energy is
+still a smooth function of the positions of the selected pairs, so `jax.grad`
+produces the collision force exactly as it produces every other force, and it
+matches the naive all-pairs gradient to machine precision
+(`tests/test_spatial.py`).
+
+Collision is off by default, so existing rollouts are unchanged. Turn it on per
+rollout:
+
+```python
+state, system = make_cloth(20, 20, collision_stiffness=50.0, collision_radius=0.9)
+final, traj = simulate(state, system, dt=1e-3, n_steps=500, collide=True)
+```
+
+`benchmarks/collision_scaling.py` compares the two directly. The naive all-pairs
+gradient scales like $N^2$ and runs out of memory past about $10^4$ particles,
+while the hashed grid stays close to linear and keeps going. On a laptop CPU it is
+about 6x faster at 8k particles and still runs at 32k where the all-pairs version
+cannot allocate its distance matrix.
+
 ---
 
 ## Quick start
@@ -328,6 +362,7 @@ jax-spring-sim/
 │   └── jax_spring_sim/
 │       ├── system.py           State / SpringSystem pytrees (NamedTuple)
 │       ├── energy.py           potential energy; forces via jax.grad
+│       ├── spatial.py          differentiable spatial hash grid; O(N) collision
 │       ├── dynamics.py         symplectic Euler; jit + lax.scan rollout
 │       ├── builders.py         make_chain / make_cloth constructors
 │       ├── batch.py            jax.vmap ensemble simulation
@@ -345,9 +380,10 @@ jax-spring-sim/
 │   ├── test_grad.py            check_grads (finite-difference gradient check)
 │   ├── test_batch.py           vmap vs serial-loop equivalence
 │   ├── test_inverse.py         inverse-design convergence
+│   ├── test_spatial.py         hash grid vs naive parity + collision gradcheck
 │   └── test_server.py          binary protocol + WebSocket streaming
 ├── examples/                   runnable figures
-├── benchmarks/                 benchmark.py + profile_engine.py (writes BENCHMARKS.md)
+├── benchmarks/                 benchmark.py, profile_engine.py, collision_scaling.py
 ├── Dockerfile                  slim CPU image; runs the quick benchmark sweep
 ├── CITATION.cff
 ├── CHANGELOG.md

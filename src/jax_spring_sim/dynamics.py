@@ -24,13 +24,14 @@ from .energy import compute_force
 from .system import SpringSystem, State
 
 
-def step(state: State, system: SpringSystem, dt: float) -> State:
+def step(state: State, system: SpringSystem, dt: float, collide: bool = False) -> State:
     """Advance the system by one symplectic-Euler step (pure function).
 
     Pinned particles (``system.fixed == 1``) have their velocity zeroed, which
-    holds them in place without special-casing positions.
+    holds them in place without special-casing positions. ``collide`` toggles the
+    O(N) collision force (see :func:`.energy.total_energy`).
     """
-    force = compute_force(state.pos, system)
+    force = compute_force(state.pos, system, collide)
     acc = force / system.mass[:, None]
     free = 1.0 - system.fixed[:, None]
 
@@ -40,13 +41,14 @@ def step(state: State, system: SpringSystem, dt: float) -> State:
     return State(pos=pos, vel=vel)
 
 
-@partial(jax.jit, static_argnames=("n_steps", "save_every"))
+@partial(jax.jit, static_argnames=("n_steps", "save_every", "collide"))
 def simulate(
     state0: State,
     system: SpringSystem,
     dt: float,
     n_steps: int,
     save_every: int = 1,
+    collide: bool = False,
 ) -> tuple[State, State]:
     """Roll the system forward for ``n_steps`` and record the trajectory.
 
@@ -67,7 +69,7 @@ def simulate(
     """
 
     def body(carry: State, _: None) -> tuple[State, State | None]:
-        new = step(carry, system, dt)
+        new = step(carry, system, dt, collide)
         return new, new
 
     # Run the inner steps without materialising every frame, then subsample.
@@ -85,6 +87,7 @@ def simulate_final(
     system: SpringSystem,
     dt: float,
     n_steps: int,
+    collide: bool = False,
 ) -> State:
     """Convenience wrapper returning only the final state (no trajectory stored).
 
@@ -93,7 +96,7 @@ def simulate_final(
     """
 
     def body(carry: State, _: None) -> tuple[State, None]:
-        return step(carry, system, dt), None
+        return step(carry, system, dt, collide), None
 
     final, _ = jax.lax.scan(body, state0, None, length=n_steps)
     return final

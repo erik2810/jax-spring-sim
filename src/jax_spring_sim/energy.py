@@ -52,26 +52,40 @@ def gravity_energy(pos: jax.Array, mass: jax.Array, gravity: jax.Array) -> jax.A
     return -jnp.sum(mass * (pos @ gravity))
 
 
-def total_energy(pos: jax.Array, system: SpringSystem) -> jax.Array:
-    """Sum of all potential energy terms for ``system`` at configuration ``pos``."""
-    return spring_energy(pos, system.edges, system.rest_length, system.stiffness) + gravity_energy(
+def total_energy(pos: jax.Array, system: SpringSystem, collide: bool = False) -> jax.Array:
+    r"""Sum of all potential energy terms for ``system`` at configuration ``pos``.
+
+    Args:
+        pos: Positions, shape ``(N, D)``.
+        system: Parameters defining the potential.
+        collide: When ``True``, add the short-range collision potential from
+            :mod:`.spatial` (O(N) via the hash grid). ``collide`` is a static
+            Python flag, so when ``False`` the grid is never traced and the
+            result is identical to the collision-free engine.
+
+    Returns:
+        Scalar total potential energy.
+    """
+    e = spring_energy(pos, system.edges, system.rest_length, system.stiffness) + gravity_energy(
         pos, system.mass, system.gravity
     )
+    if collide:
+        # Imported lazily to avoid a module import cycle (spatial imports system).
+        from .spatial import collision_energy
+
+        e = e + collision_energy(pos, system)
+    return e
 
 
-# Gradient of the energy w.r.t. positions, evaluated once and reused. The force
-# is the *negative* gradient; ``jax.grad`` differentiates argument 0 (``pos``).
-_energy_grad = jax.grad(total_energy, argnums=0)
-
-
-def compute_force(pos: jax.Array, system: SpringSystem) -> jax.Array:
+def compute_force(pos: jax.Array, system: SpringSystem, collide: bool = False) -> jax.Array:
     r"""Force on every particle, $\mathbf{F} = -\nabla_{\mathbf{x}} U$.
 
     Args:
         pos: Positions, shape ``(N, D)``.
         system: Parameters defining the potential.
+        collide: Include the collision term (see :func:`total_energy`).
 
     Returns:
         Force array, shape ``(N, D)``.
     """
-    return -_energy_grad(pos, system)
+    return -jax.grad(total_energy, argnums=0)(pos, system, collide)

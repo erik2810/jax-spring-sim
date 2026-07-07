@@ -27,12 +27,16 @@ def make_chain(
     gravity: tuple[float, ...] = (0.0, -9.81),
     damping: float = 0.999,
     pin_first: bool = True,
+    collision_stiffness: float = 0.0,
+    collision_radius: float | None = None,
 ) -> tuple[State, SpringSystem]:
     """A horizontal chain of ``n`` particles linked by ``n-1`` springs.
 
     With ``pin_first`` the leftmost particle is clamped, giving a pendulum /
     hanging-rope that swings down under gravity — a clean test bed for both
-    forward dynamics and inverse design.
+    forward dynamics and inverse design. Set ``collision_stiffness > 0`` to give
+    the chain self-repulsion (see :mod:`.spatial`); ``collision_radius`` defaults
+    to ``spacing`` so bonded neighbours sit at the cutoff.
     """
     dim = len(gravity)
     pos = jnp.zeros((n, dim)).at[:, 0].set(jnp.arange(n) * spacing)
@@ -48,6 +52,8 @@ def make_chain(
         fixed=fixed,
         gravity=jnp.asarray(gravity),
         damping=jnp.asarray(damping),
+        collision_stiffness=jnp.asarray(collision_stiffness),
+        collision_radius=jnp.asarray(spacing if collision_radius is None else collision_radius),
     )
     return State(pos=pos, vel=vel), system
 
@@ -63,12 +69,17 @@ def make_cloth(
     damping: float = 0.995,
     pin_top: bool = True,
     shear: bool = True,
+    collision_stiffness: float = 0.0,
+    collision_radius: float | None = None,
 ) -> tuple[State, SpringSystem]:
     """A ``rows x cols`` grid of particles with structural (and shear) springs.
 
     The grid lies in the $xy$-plane and falls along $z$. With ``pin_top`` the
     top row is clamped, producing a hanging curtain. ``shear`` adds the two
-    diagonal springs per cell that keep the sheet from collapsing.
+    diagonal springs per cell that keep the sheet from collapsing. Set
+    ``collision_stiffness > 0`` for self-collision (see :mod:`.spatial`);
+    ``collision_radius`` defaults to ``0.9 * spacing`` so the sheet does not
+    self-repel at rest but resists folding through itself.
     """
     xs, ys = jnp.meshgrid(jnp.arange(cols), jnp.arange(rows), indexing="xy")
     flat = (ys * cols + xs).reshape(-1)  # noqa: F841 (documents index layout)
@@ -105,5 +116,7 @@ def make_cloth(
         fixed=fixed,
         gravity=jnp.asarray(gravity),
         damping=jnp.asarray(damping),
+        collision_stiffness=jnp.asarray(collision_stiffness),
+        collision_radius=jnp.asarray(0.9 * spacing if collision_radius is None else collision_radius),
     )
     return State(pos=pos, vel=vel), system

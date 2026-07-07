@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 import jax
+import jax.numpy as jnp
 
 
 class State(NamedTuple):
@@ -49,6 +50,11 @@ class SpringSystem(NamedTuple):
             clamps that particle (Dirichlet boundary).
         gravity: Uniform acceleration vector $\\mathbf{g}$, shape ``(D,)``.
         damping: Per-step multiplicative velocity damping in ``(0, 1]``.
+        collision_stiffness: Scalar penalty stiffness $k_\\text{col}$ for the
+            short-range repulsion in :mod:`.spatial`. Defaults to ``0.0``, which
+            disables collision and leaves every existing rollout unchanged.
+        collision_radius: Scalar interaction cutoff $r_c$ (also the grid cell
+            side). Only relevant when ``collision_stiffness > 0``.
     """
 
     edges: jax.Array
@@ -58,6 +64,8 @@ class SpringSystem(NamedTuple):
     fixed: jax.Array
     gravity: jax.Array
     damping: jax.Array
+    collision_stiffness: jax.Array = jnp.asarray(0.0)
+    collision_radius: jax.Array = jnp.asarray(1.0)
 
     @property
     def n_particles(self) -> int:
