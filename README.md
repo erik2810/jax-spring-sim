@@ -161,6 +161,20 @@ A dropped cloth settles at the analytic force-balance depth $mg/k$ below the pla
 reaction force and a finite-difference gradient check). `Obstacles.build` composes
 several planes and spheres; six planes make a rigid box.
 
+Contacts also support **Coulomb friction** (`friction=mu` on any obstacle
+constructor). Friction dissipates energy, so it cannot be an energy term; it enters
+the integrator beside damping as the standard smooth regularisation of Coulomb's
+law, $F_t = -\mu\,k\,\text{pen}\; v_t / \sqrt{\lVert v_t\rVert^2 + \epsilon^2}$,
+which saturates at the Coulomb limit when sliding and acts as stiff viscous drag
+near zero slip (the differentiable stand-in for static friction). The classic
+mechanics comes out measured, not asserted: a block on a 20 degree incline sticks
+when $\mu > \tan\theta$ and slides when $\mu < \tan\theta$, and the flat-ground
+stopping distance matches $v_0^2 / (2 \mu g)$ within 2 percent
+(`tests/test_friction.py`). Because the law is smooth, $\mu$ is a differentiable
+parameter: the test suite recovers an unknown friction coefficient from an observed
+trajectory by gradient descent through the rollout, which is system identification
+in five lines.
+
 ### Learned equivariant surrogate (`egnn.py`)
 
 Everything above integrates the known physics. `egnn.py` learns a neural surrogate

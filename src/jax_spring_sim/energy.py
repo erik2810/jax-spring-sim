@@ -86,6 +86,61 @@ def obstacle_energy(pos: jax.Array, obstacles: Obstacles) -> jax.Array:
     return e
 
 
+def obstacle_friction_force(pos: jax.Array, vel: jax.Array, obstacles: Obstacles) -> jax.Array:
+    r"""Regularised Coulomb friction at obstacle contacts (a dissipative force).
+
+    Friction removes energy, so unlike every other force in this engine it cannot
+    be the gradient of a potential; it enters the integrator beside damping, as a
+    force that depends on the slip velocity. The law is the standard smooth
+    regularisation of Coulomb's,
+
+    $$F_t = -\mu\, k\,\text{pen}\; \frac{v_t}{\sqrt{\lVert v_t\rVert^2 + \epsilon^2}},$$
+
+    where $k\,\text{pen}$ is the normal force magnitude (identical to the penalty
+    energy's gradient, so normal and tangential contact stay consistent) and
+    $v_t$ is the velocity component tangent to the contact. Well above the slip
+    scale $\epsilon$ the magnitude saturates at the Coulomb limit
+    $\mu \lVert F_n \rVert$; below it the law is stiff viscous drag, the smooth
+    stand-in for static friction (bodies on a shallow incline creep at a tiny
+    residual rate instead of locking exactly, the honest price of
+    differentiability). Smooth in both ``pos`` and ``vel`` wherever there is
+    contact, so ``jax.grad`` can differentiate through stick-slip trajectories,
+    including w.r.t. $\mu$ itself.
+
+    Args:
+        pos: Positions, shape ``(N, D)``.
+        vel: Velocities, shape ``(N, D)``.
+        obstacles: Contact geometry, stiffness, and friction parameters.
+
+    Returns:
+        Tangential friction force per particle, shape ``(N, D)``.
+    """
+    mu = obstacles.friction
+    k = obstacles.stiffness
+    eps2 = obstacles.friction_smoothing**2
+    force = jnp.zeros_like(pos)
+
+    if obstacles.n_planes > 0:
+        n = obstacles.plane_normal  # (P, D)
+        pen = jnp.maximum(0.0, obstacles.plane_offset[None, :] - pos @ n.T)  # (N, P)
+        v_n = vel @ n.T  # (N, P) normal slip component
+        v_t = vel[:, None, :] - v_n[:, :, None] * n[None, :, :]  # (N, P, D)
+        speed = jnp.sqrt(jnp.sum(v_t * v_t, axis=-1) + eps2)  # (N, P)
+        force = force - jnp.sum((mu * k * pen / speed)[:, :, None] * v_t, axis=1)
+
+    if obstacles.n_spheres > 0:
+        diff = pos[:, None, :] - obstacles.sphere_center[None, :, :]  # (N, S, D)
+        dist = jnp.sqrt(jnp.sum(diff * diff, axis=-1) + 1e-12)  # (N, S)
+        n_hat = diff / dist[:, :, None]  # (N, S, D) outward contact normals
+        pen = jnp.maximum(0.0, obstacles.sphere_radius[None, :] - dist)  # (N, S)
+        v_n = jnp.sum(vel[:, None, :] * n_hat, axis=-1)  # (N, S)
+        v_t = vel[:, None, :] - v_n[:, :, None] * n_hat  # (N, S, D)
+        speed = jnp.sqrt(jnp.sum(v_t * v_t, axis=-1) + eps2)  # (N, S)
+        force = force - jnp.sum((mu * k * pen / speed)[:, :, None] * v_t, axis=1)
+
+    return force
+
+
 def total_energy(pos: jax.Array, system: SpringSystem, collide: bool = False) -> jax.Array:
     r"""Sum of all potential energy terms for ``system`` at configuration ``pos``.
 

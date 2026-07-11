@@ -35,6 +35,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `tests/test_obstacles.py`: exact reaction force, finite-difference gradient
   check, settling at the analytic m g / k balance depth, anchored nodes, and
   differentiability w.r.t. obstacle parameters.
+- Regularised Coulomb friction at obstacle contacts (`friction=mu` on
+  `Obstacles`): a dissipative tangential force beside damping, saturating at the
+  Coulomb limit when sliding and acting as stiff viscous drag near zero slip, so
+  it stays smooth for autodiff. Defaults to frictionless.
+- `tests/test_friction.py`: the force law, incline stick versus slip at the
+  tan(theta) threshold, stopping distance within 2 percent of v0^2/(2 mu g),
+  and gradient-descent recovery of an unknown mu from an observed trajectory.
 
 ## [0.1.0] - 2026-06-27
 

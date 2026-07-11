@@ -55,6 +55,15 @@ class Obstacles(NamedTuple):
         sphere_center: Keep-out sphere centres, shape ``(S, D)``.
         sphere_radius: Keep-out sphere radii, shape ``(S,)``.
         stiffness: Scalar penalty stiffness of the contact.
+        friction: Scalar Coulomb friction coefficient ``mu``. The tangential
+            contact force is the regularised Coulomb law
+            ``-mu k pen * v_t / sqrt(|v_t|^2 + eps^2)`` (see
+            :func:`.energy.obstacle_friction_force`). ``0.0`` (the default) is
+            frictionless contact.
+        friction_smoothing: Regularisation slip scale ``eps``. Below this slip
+            speed the law behaves like stiff viscous drag (the differentiable
+            stand-in for static friction); well above it the force saturates at
+            the Coulomb limit ``mu * normal force``.
     """
 
     plane_normal: jax.Array
@@ -62,6 +71,8 @@ class Obstacles(NamedTuple):
     sphere_center: jax.Array
     sphere_radius: jax.Array
     stiffness: jax.Array
+    friction: jax.Array = jnp.asarray(0.0)
+    friction_smoothing: jax.Array = jnp.asarray(1e-2)
 
     @classmethod
     def none(cls, dim: int = 3) -> Obstacles:
@@ -81,6 +92,8 @@ class Obstacles(NamedTuple):
         planes: list[tuple[tuple[float, ...], float]] | None = None,
         spheres: list[tuple[tuple[float, ...], float]] | None = None,
         stiffness: float = 1_000.0,
+        friction: float = 0.0,
+        friction_smoothing: float = 1e-2,
         dim: int = 3,
     ) -> Obstacles:
         """Assemble obstacles from plain Python lists.
@@ -90,6 +103,8 @@ class Obstacles(NamedTuple):
                 point into the allowed half-space (``normal . x >= offset``).
             spheres: ``(center, radius)`` keep-out pairs.
             stiffness: Penalty stiffness shared by all obstacles.
+            friction: Coulomb friction coefficient ``mu`` (0 = frictionless).
+            friction_smoothing: Regularisation slip scale of the friction law.
             dim: Spatial dimension, used when a list is empty.
 
         Returns:
@@ -114,13 +129,22 @@ class Obstacles(NamedTuple):
             sphere_center=center,
             sphere_radius=radius,
             stiffness=jnp.asarray(stiffness),
+            friction=jnp.asarray(friction),
+            friction_smoothing=jnp.asarray(friction_smoothing),
         )
 
     @classmethod
-    def ground(cls, height: float = 0.0, *, dim: int = 3, stiffness: float = 1_000.0) -> Obstacles:
+    def ground(
+        cls,
+        height: float = 0.0,
+        *,
+        dim: int = 3,
+        stiffness: float = 1_000.0,
+        friction: float = 0.0,
+    ) -> Obstacles:
         """A horizontal ground plane: particles stay at or above ``height``."""
         normal = tuple(0.0 for _ in range(dim - 1)) + (1.0,)
-        return cls.build(planes=[(normal, height)], stiffness=stiffness, dim=dim)
+        return cls.build(planes=[(normal, height)], stiffness=stiffness, friction=friction, dim=dim)
 
     @property
     def n_planes(self) -> int:

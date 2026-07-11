@@ -20,7 +20,7 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 
-from .energy import compute_force
+from .energy import compute_force, obstacle_friction_force
 from .system import SpringSystem, State
 
 
@@ -29,9 +29,14 @@ def step(state: State, system: SpringSystem, dt: float, collide: bool = False) -
 
     Pinned particles (``system.fixed == 1``) have their velocity zeroed, which
     holds them in place without special-casing positions. ``collide`` toggles the
-    O(N) collision force (see :func:`.energy.total_energy`).
+    O(N) collision force (see :func:`.energy.total_energy`). Obstacle friction,
+    being dissipative, enters here beside damping rather than through the
+    potential (see :func:`.energy.obstacle_friction_force`); the obstacle count
+    is a static shape, so systems without obstacles trace exactly as before.
     """
     force = compute_force(state.pos, system, collide)
+    if system.obstacles.n_planes > 0 or system.obstacles.n_spheres > 0:
+        force = force + obstacle_friction_force(state.pos, state.vel, system.obstacles)
     acc = force / system.mass[:, None]
     free = 1.0 - system.fixed[:, None]
 

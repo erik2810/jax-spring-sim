@@ -16,7 +16,14 @@ from .batch import perturb_initial, simulate_ensemble
 from .builders import make_chain, make_cloth
 from . import egnn
 from .dynamics import kinetic_energy, simulate, simulate_final, step
-from .energy import compute_force, gravity_energy, obstacle_energy, spring_energy, total_energy
+from .energy import (
+    compute_force,
+    gravity_energy,
+    obstacle_energy,
+    obstacle_friction_force,
+    spring_energy,
+    total_energy,
+)
 from .inverse import adam, fit_rest_lengths, trajectory_loss
 from .spatial import build_cell_list, collision_energy, collision_energy_naive
 from .system import Obstacles, SpringSystem, State
@@ -39,6 +46,7 @@ __all__ = [
     "make_chain",
     "make_cloth",
     "obstacle_energy",
+    "obstacle_friction_force",
     "perturb_initial",
     "simulate",
     "simulate_ensemble",
