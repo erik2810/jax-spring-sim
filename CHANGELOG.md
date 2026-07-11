@@ -26,6 +26,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `tests/test_egnn.py`: SE(3) equivariance to 1e-5, a `check_grads` gradient
   check, and a training run that fits the true one-step map and beats the
   do-nothing baseline.
+- Rigid boundary obstacles via the differentiable penalty method: an `Obstacles`
+  pytree of half-space planes (ground, walls) and keep-out spheres on
+  `SpringSystem`, entering the dynamics as a C1 penalty energy so `jax.grad`
+  produces the exact contact reaction force. Builders gain `fixed_nodes` (exact
+  Dirichlet anchors by index) and `obstacles` parameters; defaults change
+  nothing.
+- `tests/test_obstacles.py`: exact reaction force, finite-difference gradient
+  check, settling at the analytic m g / k balance depth, anchored nodes, and
+  differentiability w.r.t. obstacle parameters.
 
 ## [0.1.0] - 2026-06-27
 

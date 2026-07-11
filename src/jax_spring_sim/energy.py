@@ -18,7 +18,7 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
-from .system import SpringSystem
+from .system import Obstacles, SpringSystem
 
 
 def spring_energy(
@@ -52,6 +52,40 @@ def gravity_energy(pos: jax.Array, mass: jax.Array, gravity: jax.Array) -> jax.A
     return -jnp.sum(mass * (pos @ gravity))
 
 
+def obstacle_energy(pos: jax.Array, obstacles: Obstacles) -> jax.Array:
+    r"""Penalty potential of rigid boundary obstacles (the differentiable contact model).
+
+    Each constraint violation is penalised quadratically,
+    $U = \tfrac12 k \sum \text{pen}^2$ with penetration depth
+    $\text{pen} = \max(0, \cdot)$, so the potential is $C^1$: the reaction force
+    $-\nabla U = k\,\text{pen}\,\hat n$ is exact, points along the contact
+    normal, and ramps smoothly from zero at first touch. This is the classic
+    penalty method for inequality constraints, expressed as one more energy term
+    so autodiff produces the contact forces like every other force here.
+
+    Args:
+        pos: Positions, shape ``(N, D)``.
+        obstacles: Half-space and sphere obstacles; see
+            :class:`~jax_spring_sim.system.Obstacles`.
+
+    Returns:
+        Scalar obstacle energy (``0.0`` when there are no obstacles).
+    """
+    e = jnp.asarray(0.0, dtype=pos.dtype)
+    # Obstacle counts are static shapes under jit, so empty terms trace to nothing.
+    if obstacles.n_planes > 0:
+        # Signed height above each plane: (N, P); negative values penetrate.
+        s = pos @ obstacles.plane_normal.T - obstacles.plane_offset[None, :]
+        pen = jnp.maximum(0.0, -s)
+        e = e + 0.5 * obstacles.stiffness * jnp.sum(pen**2)
+    if obstacles.n_spheres > 0:
+        diff = pos[:, None, :] - obstacles.sphere_center[None, :, :]  # (N, S, D)
+        dist = jnp.sqrt(jnp.sum(diff * diff, axis=-1) + 1e-12)  # (N, S), safe at centre
+        pen = jnp.maximum(0.0, obstacles.sphere_radius[None, :] - dist)
+        e = e + 0.5 * obstacles.stiffness * jnp.sum(pen**2)
+    return e
+
+
 def total_energy(pos: jax.Array, system: SpringSystem, collide: bool = False) -> jax.Array:
     r"""Sum of all potential energy terms for ``system`` at configuration ``pos``.
 
@@ -69,6 +103,7 @@ def total_energy(pos: jax.Array, system: SpringSystem, collide: bool = False) ->
     e = spring_energy(pos, system.edges, system.rest_length, system.stiffness) + gravity_energy(
         pos, system.mass, system.gravity
     )
+    e = e + obstacle_energy(pos, system.obstacles)
     if collide:
         # Imported lazily to avoid a module import cycle (spatial imports system).
         from .spatial import collision_energy

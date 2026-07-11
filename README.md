@@ -125,6 +125,42 @@ while the hashed grid stays close to linear and keeps going. On a laptop CPU it 
 about 6x faster at 8k particles and still runs at 32k where the all-pairs version
 cannot allocate its distance matrix.
 
+### Boundary constraints and rigid obstacles
+
+Engineering environments need two kinds of boundary. Equality constraints (anchor
+nodes) are enforced exactly: the `fixed` mask, or a `fixed_nodes` list of node
+indices on the builders, clamps those particles as Dirichlet boundaries. Inequality
+constraints (do not penetrate the ground, a wall, a keep-out volume) are enforced by
+the penalty method, expressed the only way this engine expresses physics: as one
+more energy term,
+
+$$
+U_\text{obs} = \tfrac12\, k \sum \max(0,\ \text{penetration})^2 ,
+$$
+
+which is $C^1$, so the normal reaction force $k\,\text{pen}\,\hat n$ comes out of
+`jax.grad` exactly and ramps smoothly from zero at first contact. Obstacles are a
+pytree (`Obstacles`) of half-space planes and keep-out spheres attached to the
+system, which also makes them differentiable parameters: the gradient of a rollout
+loss with respect to a wall position is one more `jax.grad`.
+
+```python
+from jax_spring_sim import Obstacles, make_cloth, simulate
+
+state, system = make_cloth(
+    12, 16,
+    pin_top=False,
+    fixed_nodes=[0, 15],                                  # exact Dirichlet anchors
+    obstacles=Obstacles.ground(0.0, stiffness=5000.0),    # rigid ground plane
+)
+final, traj = simulate(state, system, dt=2e-3, n_steps=4000)
+```
+
+A dropped cloth settles at the analytic force-balance depth $mg/k$ below the plane
+(verified to a few percent in `tests/test_obstacles.py`, along with the exact
+reaction force and a finite-difference gradient check). `Obstacles.build` composes
+several planes and spheres; six planes make a rigid box.
+
 ### Learned equivariant surrogate (`egnn.py`)
 
 Everything above integrates the known physics. `egnn.py` learns a neural surrogate

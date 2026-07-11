@@ -7,15 +7,24 @@ edge lengths, so each network starts at rest (modulo gravity).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import jax
 import jax.numpy as jnp
 
-from .system import SpringSystem, State
+from .system import Obstacles, SpringSystem, State
 
 
 def _rest_lengths(pos: jax.Array, edges: jax.Array) -> jax.Array:
     delta = pos[edges[:, 0]] - pos[edges[:, 1]]
     return jnp.linalg.norm(delta, axis=-1)
+
+
+def _pin_mask(n: int, base: jax.Array, fixed_nodes: Sequence[int] | None) -> jax.Array:
+    """Combine a builder's default pins with a user-supplied list of anchor nodes."""
+    if fixed_nodes is None:
+        return base
+    return base.at[jnp.asarray(list(fixed_nodes), dtype=jnp.int32)].set(1.0)
 
 
 def make_chain(
@@ -27,6 +36,8 @@ def make_chain(
     gravity: tuple[float, ...] = (0.0, -9.81),
     damping: float = 0.999,
     pin_first: bool = True,
+    fixed_nodes: Sequence[int] | None = None,
+    obstacles: Obstacles | None = None,
     collision_stiffness: float = 0.0,
     collision_radius: float | None = None,
 ) -> tuple[State, SpringSystem]:
@@ -34,9 +45,12 @@ def make_chain(
 
     With ``pin_first`` the leftmost particle is clamped, giving a pendulum /
     hanging-rope that swings down under gravity — a clean test bed for both
-    forward dynamics and inverse design. Set ``collision_stiffness > 0`` to give
-    the chain self-repulsion (see :mod:`.spatial`); ``collision_radius`` defaults
-    to ``spacing`` so bonded neighbours sit at the cutoff.
+    forward dynamics and inverse design. ``fixed_nodes`` anchors any extra node
+    indices (exact Dirichlet pins, on top of ``pin_first``), and ``obstacles``
+    attaches rigid boundaries (see :class:`~jax_spring_sim.system.Obstacles`).
+    Set ``collision_stiffness > 0`` to give the chain self-repulsion (see
+    :mod:`.spatial`); ``collision_radius`` defaults to ``spacing`` so bonded
+    neighbours sit at the cutoff.
     """
     dim = len(gravity)
     pos = jnp.zeros((n, dim)).at[:, 0].set(jnp.arange(n) * spacing)
@@ -44,6 +58,7 @@ def make_chain(
     edges = jnp.stack([jnp.arange(n - 1), jnp.arange(1, n)], axis=1)
 
     fixed = jnp.zeros(n).at[0].set(1.0) if pin_first else jnp.zeros(n)
+    fixed = _pin_mask(n, fixed, fixed_nodes)
     system = SpringSystem(
         edges=edges,
         rest_length=_rest_lengths(pos, edges),
@@ -54,6 +69,7 @@ def make_chain(
         damping=jnp.asarray(damping),
         collision_stiffness=jnp.asarray(collision_stiffness),
         collision_radius=jnp.asarray(spacing if collision_radius is None else collision_radius),
+        obstacles=obstacles if obstacles is not None else Obstacles.none(dim),
     )
     return State(pos=pos, vel=vel), system
 
@@ -69,6 +85,8 @@ def make_cloth(
     damping: float = 0.995,
     pin_top: bool = True,
     shear: bool = True,
+    fixed_nodes: Sequence[int] | None = None,
+    obstacles: Obstacles | None = None,
     collision_stiffness: float = 0.0,
     collision_radius: float | None = None,
 ) -> tuple[State, SpringSystem]:
@@ -76,10 +94,13 @@ def make_cloth(
 
     The grid lies in the $xy$-plane and falls along $z$. With ``pin_top`` the
     top row is clamped, producing a hanging curtain. ``shear`` adds the two
-    diagonal springs per cell that keep the sheet from collapsing. Set
-    ``collision_stiffness > 0`` for self-collision (see :mod:`.spatial`);
-    ``collision_radius`` defaults to ``0.9 * spacing`` so the sheet does not
-    self-repel at rest but resists folding through itself.
+    diagonal springs per cell that keep the sheet from collapsing.
+    ``fixed_nodes`` anchors any extra node indices (exact Dirichlet pins), and
+    ``obstacles`` attaches rigid boundaries such as a ground plane (see
+    :class:`~jax_spring_sim.system.Obstacles`). Set ``collision_stiffness > 0``
+    for self-collision (see :mod:`.spatial`); ``collision_radius`` defaults to
+    ``0.9 * spacing`` so the sheet does not self-repel at rest but resists
+    folding through itself.
     """
     xs, ys = jnp.meshgrid(jnp.arange(cols), jnp.arange(rows), indexing="xy")
     flat = (ys * cols + xs).reshape(-1)  # noqa: F841 (documents index layout)
@@ -107,6 +128,7 @@ def make_cloth(
     fixed = jnp.zeros(rows * cols)
     if pin_top:
         fixed = fixed.at[jnp.arange(cols)].set(1.0)
+    fixed = _pin_mask(rows * cols, fixed, fixed_nodes)
 
     system = SpringSystem(
         edges=edges,
@@ -120,5 +142,6 @@ def make_cloth(
         collision_radius=jnp.asarray(
             0.9 * spacing if collision_radius is None else collision_radius
         ),
+        obstacles=obstacles if obstacles is not None else Obstacles.none(3),
     )
     return State(pos=pos, vel=vel), system
