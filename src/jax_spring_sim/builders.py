@@ -21,9 +21,17 @@ def _rest_lengths(pos: jax.Array, edges: jax.Array) -> jax.Array:
 
 
 def _pin_mask(n: int, base: jax.Array, fixed_nodes: Sequence[int] | None) -> jax.Array:
-    """Combine a builder's default pins with a user-supplied list of anchor nodes."""
+    """Combine a builder's default pins with a user-supplied list of anchor nodes.
+
+    Raises:
+        ValueError: On an out-of-range node index. JAX scatter would silently
+            drop it, turning a typo into an anchor that never exists.
+    """
     if fixed_nodes is None:
         return base
+    bad = [int(i) for i in fixed_nodes if not 0 <= int(i) < n]
+    if bad:
+        raise ValueError(f"fixed_nodes indices out of range for {n} nodes: {bad}")
     return base.at[jnp.asarray(list(fixed_nodes), dtype=jnp.int32)].set(1.0)
 
 

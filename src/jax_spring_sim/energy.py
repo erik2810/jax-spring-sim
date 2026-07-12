@@ -107,6 +107,14 @@ def obstacle_friction_force(pos: jax.Array, vel: jax.Array, obstacles: Obstacles
     contact, so ``jax.grad`` can differentiate through stick-slip trajectories,
     including w.r.t. $\mu$ itself.
 
+    Time-step guidance: under explicit integration the near-zero-slip regime is
+    a viscous term of coefficient $\mu k \,\text{pen} / \epsilon$, so keep
+    $\Delta t \lesssim \epsilon\, m / (\mu k\, \text{pen})$, which is
+    $\epsilon / (\mu g)$ for a body resting under gravity. Larger steps do not
+    blow up (the force saturates at the Coulomb limit) but leave a residual slip
+    jitter that grows with $\Delta t$: measured on the stopping-block test, the
+    final speed rises from exactly 0 at ``dt=1e-3`` to about 2e-2 at ``dt=8e-3``.
+
     Args:
         pos: Positions, shape ``(N, D)``.
         vel: Velocities, shape ``(N, D)``.

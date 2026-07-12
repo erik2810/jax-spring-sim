@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import jax
 import jax.numpy as jnp
+import pytest
 from jax.test_util import check_grads
 
 from jax_spring_sim import (
@@ -105,6 +106,31 @@ def test_empty_obstacles_change_nothing() -> None:
     pos = state.pos + 0.1
     assert float(obstacle_energy(pos, system.obstacles)) == 0.0
     assert jnp.allclose(total_energy(pos, system), total_energy(pos, system2))
+
+
+def test_build_rejects_bad_inputs() -> None:
+    # A zero-length normal or a zero smoothing scale would propagate NaN through
+    # the contact forces; both must fail loudly at construction instead.
+    with pytest.raises(ValueError, match="nonzero length"):
+        Obstacles.build(planes=[((0.0, 0.0, 0.0), 0.0)])
+    with pytest.raises(ValueError, match="friction_smoothing"):
+        Obstacles.build(friction_smoothing=0.0)
+
+
+def test_build_respects_default_float_dtype() -> None:
+    # Geometry follows the configured default float width (float64 under the
+    # x64 flag), and integer literals do not produce integer geometry.
+    default = jnp.zeros(()).dtype
+    obs = Obstacles.build(planes=[((0, 0, 1), 0)], spheres=[((0, 0, 0), 1)])
+    assert obs.plane_normal.dtype == default
+    assert obs.sphere_radius.dtype == default
+    assert float(obs.sphere_radius[0]) == 1.0
+
+
+def test_fixed_nodes_out_of_range_raises() -> None:
+    # JAX scatter would silently drop a bad index; the builder must not.
+    with pytest.raises(ValueError, match="out of range"):
+        make_cloth(4, 4, fixed_nodes=[999])
 
 
 def test_obstacles_are_differentiable_parameters() -> None:

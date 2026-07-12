@@ -109,17 +109,29 @@ class Obstacles(NamedTuple):
 
         Returns:
             An :class:`Obstacles` pytree ready to attach to a system.
+
+        Raises:
+            ValueError: On a zero-length plane normal or a non-positive
+                ``friction_smoothing`` (both would propagate NaN through the
+                contact forces instead of failing here).
         """
+        if friction_smoothing <= 0.0:
+            raise ValueError("friction_smoothing must be positive; it regularises the Coulomb law")
+        # dtype=float follows the default float width (float64 under jax_enable_x64),
+        # and keeps integer literals like (0, 0, 1) from producing integer geometry.
         if planes:
-            normal = jnp.asarray([n for n, _ in planes], dtype=jnp.float32) * 1.0
-            normal = normal / jnp.linalg.norm(normal, axis=1, keepdims=True)
-            offset = jnp.asarray([o for _, o in planes], dtype=normal.dtype)
+            normal = jnp.asarray([n for n, _ in planes], dtype=float)
+            norms = jnp.linalg.norm(normal, axis=1, keepdims=True)
+            if bool(jnp.any(norms < 1e-12)):
+                raise ValueError("plane normals must have nonzero length")
+            normal = normal / norms
+            offset = jnp.asarray([o for _, o in planes], dtype=float)
         else:
             normal = jnp.zeros((0, dim))
             offset = jnp.zeros((0,))
         if spheres:
-            center = jnp.asarray([c for c, _ in spheres], dtype=jnp.float32) * 1.0
-            radius = jnp.asarray([r for _, r in spheres], dtype=center.dtype)
+            center = jnp.asarray([c for c, _ in spheres], dtype=float)
+            radius = jnp.asarray([r for _, r in spheres], dtype=float)
         else:
             center = jnp.zeros((0, dim))
             radius = jnp.zeros((0,))
