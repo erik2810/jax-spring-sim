@@ -15,6 +15,7 @@ count and ``D`` the spatial dimension (2 or 3). Edge arrays have shape
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import NamedTuple
 
 import jax
@@ -89,8 +90,8 @@ class Obstacles(NamedTuple):
     def build(
         cls,
         *,
-        planes: list[tuple[tuple[float, ...], float]] | None = None,
-        spheres: list[tuple[tuple[float, ...], float]] | None = None,
+        planes: Sequence[tuple[Sequence[float], float]] | None = None,
+        spheres: Sequence[tuple[Sequence[float], float]] | None = None,
         stiffness: float = 1_000.0,
         friction: float = 0.0,
         friction_smoothing: float = 1e-2,
@@ -113,10 +114,16 @@ class Obstacles(NamedTuple):
         Raises:
             ValueError: On a zero-length plane normal or a non-positive
                 ``friction_smoothing`` (both would propagate NaN through the
-                contact forces instead of failing here).
+                contact forces instead of failing here), or on a negative
+                ``stiffness`` or ``friction`` (an attractive wall or an
+                energy-injecting friction force is never intended).
         """
         if friction_smoothing <= 0.0:
             raise ValueError("friction_smoothing must be positive; it regularises the Coulomb law")
+        if stiffness < 0.0:
+            raise ValueError("stiffness must be non-negative; a negative value attracts particles")
+        if friction < 0.0:
+            raise ValueError("friction must be non-negative; a negative value injects energy")
         # dtype=float follows the default float width (float64 under jax_enable_x64),
         # and keeps integer literals like (0, 0, 1) from producing integer geometry.
         if planes:

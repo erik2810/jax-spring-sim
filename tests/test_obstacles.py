@@ -110,11 +110,17 @@ def test_empty_obstacles_change_nothing() -> None:
 
 def test_build_rejects_bad_inputs() -> None:
     # A zero-length normal or a zero smoothing scale would propagate NaN through
-    # the contact forces; both must fail loudly at construction instead.
+    # the contact forces; both must fail loudly at construction instead. Negative
+    # stiffness (attractive wall) and negative friction (energy injection) are
+    # never intended and fail the same way.
     with pytest.raises(ValueError, match="nonzero length"):
         Obstacles.build(planes=[((0.0, 0.0, 0.0), 0.0)])
     with pytest.raises(ValueError, match="friction_smoothing"):
         Obstacles.build(friction_smoothing=0.0)
+    with pytest.raises(ValueError, match="stiffness"):
+        Obstacles.build(stiffness=-1.0)
+    with pytest.raises(ValueError, match="friction"):
+        Obstacles.build(friction=-0.5)
 
 
 def test_build_respects_default_float_dtype() -> None:

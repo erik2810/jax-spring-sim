@@ -35,3 +35,14 @@ def test_force_is_negative_energy_gradient() -> None:
     force = compute_force(perturbed, system)
     grad = jax.grad(total_energy)(perturbed, system)
     assert jnp.allclose(force, -grad, atol=1e-9)
+
+
+def test_force_is_finite_at_coincident_connected_nodes() -> None:
+    # A bare norm has a NaN gradient at zero separation, which would silently
+    # poison a rollout the first time two connected particles collapse onto each
+    # other. The regularised length keeps the force finite (and zero, since the
+    # direction is genuinely undefined there).
+    state, system = make_chain(3, pin_first=False)
+    pos = state.pos.at[1].set(state.pos[0])
+    force = compute_force(pos, system)
+    assert jnp.all(jnp.isfinite(force))

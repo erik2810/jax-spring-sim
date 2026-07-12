@@ -23,12 +23,12 @@ from jax_spring_sim import (
     obstacle_friction_force,
     simulate,
 )
-from jax_spring_sim.system import State
+from jax_spring_sim.system import SpringSystem, State
 
 G = 9.81
 
 
-def _block_on_ground(mu: float, v0: float, k: float = 5000.0) -> tuple[State, object]:
+def _block_on_ground(mu: float, v0: float, k: float = 5000.0) -> tuple[State, SpringSystem]:
     """A single free particle resting on the ground at balance depth, sliding at v0."""
     obs = Obstacles.ground(0.0, dim=3, stiffness=k, friction=mu)
     state, system = make_chain(

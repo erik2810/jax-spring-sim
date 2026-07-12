@@ -62,10 +62,13 @@ def simulate(
 
     Args:
         state0: Initial state.
-        system: System parameters (held constant over the rollout).
+        system: System parameters (held constant over the rollout), including
+            any obstacles and their friction.
         dt: Time step.
         n_steps: Number of integration steps.
         save_every: Subsample factor for the returned trajectory.
+        collide: Enable the O(N) particle-particle collision force (static
+            flag; off costs nothing, see :func:`.energy.total_energy`).
 
     Returns:
         ``(final_state, trajectory)`` where ``trajectory`` is a :class:`State`
@@ -98,6 +101,8 @@ def simulate_final(
 
     Preferred inside loss functions: the trajectory is dead weight for gradient
     computation and skipping it reduces peak memory of the reverse pass.
+    ``collide`` enables the O(N) particle-particle collision force, exactly as
+    in :func:`simulate`.
     """
 
     def body(carry: State, _: None) -> tuple[State, None]:
