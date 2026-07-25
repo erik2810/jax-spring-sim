@@ -27,6 +27,7 @@ from .energy import (
 from .inverse import adam, fit_rest_lengths, trajectory_loss
 from .spatial import build_cell_list, collision_energy, collision_energy_naive
 from .system import Obstacles, SpringSystem, State
+from .vtk_export import export_state, export_trajectory
 
 __version__ = "0.1.0"
 
@@ -40,6 +41,8 @@ __all__ = [
     "collision_energy_naive",
     "compute_force",
     "egnn",
+    "export_state",
+    "export_trajectory",
     "fit_rest_lengths",
     "gravity_energy",
     "kinetic_energy",

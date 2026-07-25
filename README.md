@@ -175,6 +175,26 @@ parameter: the test suite recovers an unknown friction coefficient from an obser
 trajectory by gradient descent through the rollout, which is system identification
 in five lines.
 
+### VTK export for ParaView and PyVista (`vtk_export.py`)
+
+The interactive viewer reads the package's binary trajectory format, but the
+scientific-visualisation ecosystem reads VTK. `export_trajectory` writes a rollout
+as a `.pvd` time series (one `.vtu` per saved frame, particles as points, springs
+as line cells, per-node `speed`, `velocity`, and `pinned` fields), so a simulation
+opens directly in ParaView (press play) or `pyvista.read`. 2D networks are padded
+into a plane, since VTK points are three-dimensional.
+
+```python
+from jax_spring_sim import export_trajectory, make_cloth, simulate
+
+state, system = make_cloth(20, 20)
+_, traj = simulate(state, system, dt=1e-3, n_steps=500, save_every=10)
+export_trajectory("out/", traj, system)   # -> out/trajectory.pvd
+```
+
+The writer targets the VTK XML format with no dependency on the VTK stack; the test
+suite round-trips every file through `meshio` as an independent reader.
+
 ### Learned equivariant surrogate (`egnn.py`)
 
 Everything above integrates the known physics. `egnn.py` learns a neural surrogate
@@ -446,6 +466,7 @@ jax-spring-sim/
 │       ├── energy.py           potential energy; forces via jax.grad
 │       ├── spatial.py          differentiable spatial hash grid; O(N) collision
 │       ├── egnn.py             learned SE(3)-equivariant one-step surrogate
+│       ├── vtk_export.py       VTU/PVD export for ParaView and PyVista
 │       ├── dynamics.py         symplectic Euler; jit + lax.scan rollout
 │       ├── builders.py         make_chain / make_cloth constructors
 │       ├── batch.py            jax.vmap ensemble simulation

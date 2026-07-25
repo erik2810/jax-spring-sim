@@ -43,6 +43,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tan(theta) threshold, stopping distance within 2 percent of v0^2/(2 mu g),
   and gradient-descent recovery of an unknown mu from an observed trajectory.
 
+- VTK export (`vtk_export.py`): `export_state` / `export_trajectory` write a
+  network or rollout as VTU/PVD files (points, line cells, per-node speed,
+  velocity, and pin mask) for ParaView and PyVista. Hand-rolled against the VTK
+  XML format with no dependency on the VTK stack; round-trip-validated against
+  `meshio` in the test suite.
+
 ## [0.1.0] - 2026-06-27
 
 ### Added
