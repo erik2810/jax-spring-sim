@@ -148,10 +148,11 @@ loss with respect to a wall position is one more `jax.grad`.
 from jax_spring_sim import Obstacles, make_cloth, simulate
 
 state, system = make_cloth(
-    12, 16,
+    12,
+    16,
     pin_top=False,
-    fixed_nodes=[0, 15],                                  # exact Dirichlet anchors
-    obstacles=Obstacles.ground(0.0, stiffness=5000.0),    # rigid ground plane
+    fixed_nodes=[0, 15],  # exact Dirichlet anchors
+    obstacles=Obstacles.ground(0.0, stiffness=5000.0),  # rigid ground plane
 )
 final, traj = simulate(state, system, dt=2e-3, n_steps=4000)
 ```
@@ -189,7 +190,7 @@ from jax_spring_sim import export_trajectory, make_cloth, simulate
 
 state, system = make_cloth(20, 20)
 _, traj = simulate(state, system, dt=1e-3, n_steps=500, save_every=10)
-export_trajectory("out/", traj, system)   # -> out/trajectory.pvd
+export_trajectory("out/", traj, system)  # -> out/trajectory.pvd
 ```
 
 The writer targets the VTK XML format with no dependency on the VTK stack; the test
@@ -219,7 +220,7 @@ from jax_spring_sim.dynamics import step
 
 state, system = make_cloth(4, 4, gravity=(0.0, 0.0, 0.0))  # gravity-free => equivariant
 params = egnn.init_params(jax.random.PRNGKey(0), node_feat_dim=2, edge_attr_dim=2)
-pred = egnn.predict_step(params, state, system, dt=5e-3)    # a learned stand-in for step()
+pred = egnn.predict_step(params, state, system, dt=5e-3)  # a learned stand-in for step()
 ```
 
 `tests/test_egnn.py` verifies the SE(3) equivariance to 1e-5, checks the gradient
@@ -258,9 +259,9 @@ A minimal forward simulation:
 import jax
 from jax_spring_sim import make_chain, simulate, simulate_final
 
-state, system = make_chain(20)            # pinned chain under gravity
+state, system = make_chain(20)  # pinned chain under gravity
 final, trajectory = simulate(state, system, dt=0.01, n_steps=500)
-print(final.pos.shape)                      # (20, 2)
+print(final.pos.shape)  # (20, 2)
 ```
 
 One forward-backward step through the whole rollout, gradients w.r.t. every
@@ -271,10 +272,10 @@ import jax
 from jax_spring_sim import make_chain, trajectory_loss
 
 state, system = make_chain(20)
-target = state.pos                            # any observed shape, (20, 2)
+target = state.pos  # any observed shape, (20, 2)
 loss = lambda rest: trajectory_loss(rest, state, system, target, 0.01, 250)
 value, grads = jax.value_and_grad(loss)(system.rest_length)
-print(value, grads.shape)                     # scalar loss, (19,)
+print(value, grads.shape)  # scalar loss, (19,)
 ```
 
 Inverse design — recover hidden rest lengths from an observed shape:
@@ -297,8 +298,8 @@ from jax_spring_sim import make_chain, perturb_initial, simulate_ensemble
 
 state, system = make_chain(20)
 states0 = perturb_initial(state, jax.random.PRNGKey(0), batch=256, scale=0.1)
-finals = simulate_ensemble(states0, system, 0.01, 500)   # one batched kernel
-print(finals.pos.shape)                                   # (256, 20, 2)
+finals = simulate_ensemble(states0, system, 0.01, 500)  # one batched kernel
+print(finals.pos.shape)  # (256, 20, 2)
 ```
 
 ---
